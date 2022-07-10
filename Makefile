@@ -1,24 +1,88 @@
-ifndef ORBISDEV
-$(error ORBISDEV, is not set)
+#---------------------------------------------------------------------------------
+# Clear the implicit built in rules
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+#---------------------------------------------------------------------------------
+
+ifeq ($(strip $(OO_PS4_TOOLCHAIN)),)
+$(error "Please set OO_PS4_TOOLCHAIN in your environment. export OO_PS4_TOOLCHAIN=<path>")
 endif
 
-target := ps4_lib
-OutPath := lib
-TargetFile := libSQLite
-AllTarget = $(OutPath)/$(TargetFile).a 
+include $(OO_PS4_TOOLCHAIN)/build_rules.mk
 
-include $(ORBISDEV)/make/ps4sdklib.mk
-CompilerFlags += -DHAVE_CONFIG_H -D_U_="__attribute__((unused))" -DNDEBUG -D_BSD_SOURCE -DSQLITE_ENABLE_MEMORY_MANAGEMENT  -DSQLITE_OS_OTHER=1 -DSQLITE_OMIT_WAL
-CompilerFlagsCpp += -DHAVE_CONFIG_H -D_U_="__attribute__((unused))" -DNDEBUG -D_BSD_SOURCE
-#IncludePath += -I$(ORBISDEV)/usr/include -Iinclude/nfsc 
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(PLATFORM)),)
+#---------------------------------------------------------------------------------
+export BASEDIR		:= $(CURDIR)
+export DEPS			:= $(BASEDIR)/deps
+export LIBS			:=	$(BASEDIR)/lib
 
+#---------------------------------------------------------------------------------
+else
+#---------------------------------------------------------------------------------
 
-$(OutPath)/$(TargetFile).a: $(ObjectFiles)
-	$(dirp)
-	$(archive)
+export LIBDIR		:= $(LIBS)/$(PLATFORM)
+export DEPSDIR		:=	$(DEPS)/$(PLATFORM)
 
-install:
-	@cp $(OutPath)/$(TargetFile).a $(DESTDIR)$(ORBISDEV)/usr/lib
-	@cp include/sqlite3.h $(DESTDIR)$(ORBISDEV)/usr/include/orbis
-	@echo "$(TargetFile) Installed!"
+#---------------------------------------------------------------------------------
+endif
+#---------------------------------------------------------------------------------
 
+TARGET		:=	libSQLite
+BUILD		:=	build
+SOURCE		:=	source
+INCLUDE		:=	include
+DATA		:=	data
+LIBS		:=	 
+
+CFLAGS      += --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -c $(EXTRAFLAGS) -isysroot $(OO_PS4_TOOLCHAIN) -isystem $(OO_PS4_TOOLCHAIN)/include $(INCLUDES) -DNDEBUG -D_BSD_SOURCE -DSQLITE_ENABLE_MEMORY_MANAGEMENT -DSQLITE_OS_OTHER=1 -DSQLITE_OMIT_WAL
+CXXFLAGS    += $(CFLAGS) -isystem $(OO_PS4_TOOLCHAIN)/include/c++/v1
+
+ifneq ($(BUILD),$(notdir $(CURDIR)))
+
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export VPATH	:=	$(foreach dir,$(SOURCE),$(CURDIR)/$(dir)) \
+					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+export BUILDDIR	:=	$(CURDIR)/$(BUILD)
+export DEPSDIR	:=	$(BUILDDIR)
+
+CFILES		:= $(foreach dir,$(SOURCE),$(notdir $(wildcard $(dir)/*.c)))
+CXXFILES	:= $(foreach dir,$(SOURCE),$(notdir $(wildcard $(dir)/*.cpp)))
+SFILES		:= $(foreach dir,$(SOURCE),$(notdir $(wildcard $(dir)/*.S)))
+BINFILES	:= $(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.bin)))
+
+export OFILES	:=	$(CFILES:.c=.o) \
+					$(CXXFILES:.cpp=.o) \
+					$(SFILES:.S=.o) \
+					$(BINFILES:.bin=.bin.o)
+
+export BINFILES	:=	$(BINFILES:.bin=.bin.h)
+
+export INCLUDES	=	$(foreach dir,$(INCLUDE),-I$(CURDIR)/$(dir)) \
+					-I$(CURDIR)/$(BUILD) -I$(OO_PS4_TOOLCHAIN)/include
+
+.PHONY: $(BUILD) install clean
+
+$(BUILD):
+	@[ -d $@ ] || mkdir -p $@
+	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+
+install: $(BUILD)
+	@echo Copying...
+	@cp -frv include/sqlite3.h $(OO_PS4_TOOLCHAIN)/include
+	@cp -frv $(TARGET).a $(OO_PS4_TOOLCHAIN)/lib
+	@echo lib installed!
+clean:
+	@echo Clean...
+	@rm -rf $(BUILD) $(OUTPUT).elf $(OUTPUT).self $(OUTPUT).a
+
+else
+
+DEPENDS	:= $(OFILES:.o=.d)
+
+$(OUTPUT).a: $(OFILES)
+$(OFILES): $(BINFILES)
+
+-include $(DEPENDS)
+
+endif

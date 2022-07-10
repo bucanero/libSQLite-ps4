@@ -25,12 +25,13 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <libkernel.h>
+#include <orbis/libkernel.h>
 #include <string.h>
-#include <debugnet.h>
 #include <time.h>
 #include <fcntl.h>
 #include "sqlite3.h"
+
+#define debugNetPrintf(...)
 
 #ifndef SQLITE_DEFAULT_SECTOR_SIZE
 #define SQLITE_DEFAULT_SECTOR_SIZE 512
@@ -227,7 +228,7 @@ void* orbis_xDlOpen(sqlite3_vfs *vfs,const char *zFilename)
 
 void orbis_xDlError(sqlite3_vfs *vfs,int nByte,char *zErrMsg)
 {
-
+	return;
 }
 
 void(*orbis_xDlSym(sqlite3_vfs *vfs,void *p,const char *zSymbol))(void)
@@ -237,12 +238,12 @@ void(*orbis_xDlSym(sqlite3_vfs *vfs,void *p,const char *zSymbol))(void)
 
 void orbis_xDlClose(sqlite3_vfs *vfs,void*p)
 {
-
+	return;
 }
 
 int orbis_xRandomness(sqlite3_vfs *vfs,int nByte,char *zOut)
 {
-
+	return 0;
 }
 
 int orbis_xSleep(sqlite3_vfs *vfs,int microseconds)
