@@ -31,8 +31,6 @@
 #include <fcntl.h>
 #include "sqlite3.h"
 
-#define debugNetPrintf(...)
-
 #ifndef SQLITE_DEFAULT_SECTOR_SIZE
 #define SQLITE_DEFAULT_SECTOR_SIZE 512
 #endif
@@ -181,7 +179,6 @@ static int orbis_xOpen(sqlite3_vfs *vfs,const char *name,sqlite3_file *file,int 
 	}
 	else
 	{
-		debugNetPrintf(DEBUGNET_ERROR,"[SQLITE][%s][%d] error opening file %s\n",__FUNCTION__,__LINE__,name);
 		sLastError=SQLITE_CANTOPEN;
 		return SQLITE_CANTOPEN;
 	}
@@ -203,56 +200,59 @@ static int orbis_xOpen(sqlite3_vfs *vfs,const char *name,sqlite3_file *file,int 
 	return SQLITE_OK;
 }
 
-int orbis_xDelete(sqlite3_vfs *vfs,const char *name,int syncDir)
+static int orbis_xDelete(sqlite3_vfs *vfs,const char *name,int syncDir)
 {
 	unlink(name);
 	return SQLITE_OK;
 }
 
-int orbis_xAccess(sqlite3_vfs *vfs, const char *name,int flags,int *pResOut)
+static int orbis_xAccess(sqlite3_vfs *vfs, const char *name,int flags,int *pResOut)
 {
 	*pResOut=1;
 	return SQLITE_OK;
 }
 
-int orbis_xFullPathname(sqlite3_vfs *vfs,const char *zName,int nOut,char *zOut)
+static int orbis_xFullPathname(sqlite3_vfs *vfs,const char *zName,int nOut,char *zOut)
 {
 	sqlite3_snprintf(nOut,zOut,"%s",zName);
 	return SQLITE_OK;
 }
 
-void* orbis_xDlOpen(sqlite3_vfs *vfs,const char *zFilename)
+static void* orbis_xDlOpen(sqlite3_vfs *vfs,const char *zFilename)
 {
 	return NULL;
 }
 
-void orbis_xDlError(sqlite3_vfs *vfs,int nByte,char *zErrMsg)
+static void orbis_xDlError(sqlite3_vfs *vfs,int nByte,char *zErrMsg)
 {
 	return;
 }
 
-void(*orbis_xDlSym(sqlite3_vfs *vfs,void *p,const char *zSymbol))(void)
+static void(*orbis_xDlSym(sqlite3_vfs *vfs,void *p,const char *zSymbol))(void)
 {
 	return NULL;
 }
 
-void orbis_xDlClose(sqlite3_vfs *vfs,void*p)
+static void orbis_xDlClose(sqlite3_vfs *vfs,void*p)
 {
 	return;
 }
 
-int orbis_xRandomness(sqlite3_vfs *vfs,int nByte,char *zOut)
+static int orbis_xRandomness(sqlite3_vfs *vfs,int nByte,char *zOut)
 {
-	return 0;
+	for(int i = 0; i < nByte; i++)
+		zOut[i] = (((uint32_t)time(0) ^ i) + zOut[i]) & 0xFF;
+
+	return nByte;
 }
 
-int orbis_xSleep(sqlite3_vfs *vfs,int microseconds)
+static int orbis_xSleep(sqlite3_vfs *vfs,int microseconds)
 {
 	sceKernelUsleep(microseconds);
 	return SQLITE_OK;
 }
 
-int orbis_xCurrentTime(sqlite3_vfs *vfs,double *pTime)
+static int orbis_xCurrentTime(sqlite3_vfs *vfs,double *pTime)
 {
 	struct timespec ts={0};
 	clock_gettime(CLOCK_MONOTONIC,&ts);
@@ -260,7 +260,7 @@ int orbis_xCurrentTime(sqlite3_vfs *vfs,double *pTime)
 	return SQLITE_OK;
 }
 
-int orbis_xGetLastError(sqlite3_vfs *vfs, int e, char *err)
+static int orbis_xGetLastError(sqlite3_vfs *vfs, int e, char *err)
 {
 	sqlite3_snprintf(e,err,"OsError 0x%x (%u)",sLastError,sLastError);
 	return SQLITE_OK;
@@ -295,8 +295,6 @@ static sqlite3_vfs orbis_vfs=
 
 int sqlite3_os_init(void)
 {
-	debugNetPrintf(DEBUGNET_INFO,"[SQLITE][%s]SQLite for Orbis\n",__FUNCTION__);
-	debugNetPrintf(DEBUGNET_INFO,"[SQLITE][%s]Registering vfs\n",__FUNCTION__);
 	return sqlite3_vfs_register(&orbis_vfs, 1);
 }
 
