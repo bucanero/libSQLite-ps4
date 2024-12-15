@@ -252,11 +252,17 @@ static int orbis_xSleep(sqlite3_vfs *vfs,int microseconds)
 	return SQLITE_OK;
 }
 
+/*
+** Set *pTime to the current UTC time expressed as a Julian day. Return
+** SQLITE_OK if successful, or an error code otherwise.
+**
+**   http://en.wikipedia.org/wiki/Julian_day
+**
+*/
 static int orbis_xCurrentTime(sqlite3_vfs *vfs,double *pTime)
 {
-	struct timespec ts={0};
-	clock_gettime(CLOCK_MONOTONIC,&ts);
-	*pTime=ts.tv_sec+ts.tv_nsec/1000000000.0;
+	time_t t = time(0);
+	*pTime = t/86400.0 + 2440587.5;
 	return SQLITE_OK;
 }
 
@@ -266,10 +272,10 @@ static int orbis_xGetLastError(sqlite3_vfs *vfs, int e, char *err)
 	return SQLITE_OK;
 }
 
-static sqlite3_vfs orbis_vfs= 
+static sqlite3_vfs orbis_vfs=
 {
 	// VFS settings
-	3,					// iVersion 
+	3,					// iVersion
 	sizeof(OrbisFile),	// szOsFile
 	512,				// mxPathname
 	0,					// pNext
@@ -290,7 +296,7 @@ static sqlite3_vfs orbis_vfs=
 	orbis_xRandomness,	// xRandomness
 	orbis_xSleep,		// xSleep
 	orbis_xCurrentTime,	// xCurrentTime
-	orbis_xGetLastError	// xGetLastError  
+	orbis_xGetLastError	// xGetLastError
 };
 
 int sqlite3_os_init(void)
